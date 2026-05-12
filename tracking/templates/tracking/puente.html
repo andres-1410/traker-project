@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abriendo Catálogo...</title>
+    <style>
+        body { 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100vh; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; 
+        }
+        .contenedor { text-align: center; padding: 20px; }
+        .logo-vendedor { max-width: 130px; max-height: 130px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); object-fit: contain; }
+        .spinner { 
+            border: 4px solid #e5e7eb; border-top: 4px solid #25D366; 
+            border-radius: 50%; width: 40px; height: 40px; 
+            animation: spin 0.8s linear infinite; margin: 0 auto 15px; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        h2 { color: #1f2937; margin-bottom: 5px; font-size: 1.3rem; }
+        p { color: #6b7280; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <!-- Mostrar Logo si existe -->
+        {% if vendedor.logo %}
+            <img src="{{ vendedor.logo.url }}" alt="Logo {{ vendedor.nombre_comercial }}" class="logo-vendedor">
+        {% endif %}
+        
+        <div class="spinner"></div>
+        <h2>{{ vendedor.nombre_comercial }}</h2>
+        <p>Conectando de forma segura...</p>
+    </div>
+
+    <script>
+        // 1. LA REDIRECCIÓN (Prioridad #1 para no perder al cliente)
+        const urlDestino = "{{ catalogo.url_drive_destino|safe }}";
+        
+        // Disparamos la redirección en 400 milisegundos exactos. 
+        // Es el tiempo justo para que vean el logo y sientan que es un sistema profesional.
+        setTimeout(() => {
+            window.location.replace(urlDestino);
+        }, 400);
+
+        // 2. EL MOTOR DE EXTRACCIÓN DE DATOS
+        function obtenerOSyDispositivo() {
+            const ua = navigator.userAgent;
+            let os = "Desconocido", device = "Escritorio";
+            
+            if (/Windows/.test(ua)) os = "Windows";
+            else if (/Mac OS X/.test(ua) && !/iPhone|iPad/.test(ua)) os = "MacOS";
+            else if (/Android/.test(ua)) os = "Android";
+            else if (/iPhone|iPad/.test(ua)) os = "iOS";
+
+            if (/Mobile|Android|iP(hone|od)/.test(ua)) {
+                device = "Móvil Genérico";
+                if (/iPhone/.test(ua)) device = "iPhone";
+                else if (/iPad/.test(ua)) device = "iPad";
+                else {
+                    const match = ua.match(/Android.*?; (.*?)\s+(Build|\))/);
+                    if (match) device = match[1];
+                }
+            }
+            return { os, device };
+        }
+
+        function generarHuella() {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = "top"; ctx.font = "14px 'Arial'"; 
+                ctx.fillStyle = "#f60"; ctx.fillRect(125,1,62,20);
+                ctx.fillStyle = "#069"; ctx.fillText("TuTrackerApp", 2, 15);
+                
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Desconocida";
+                const componentes = [canvas.toDataURL(), navigator.userAgent, screen.colorDepth, timezone].join('|');
+                
+                let hash = 5381;
+                for (let i = 0; i < componentes.length; i++) {
+                    hash = ((hash << 5) + hash) + componentes.charCodeAt(i);
+                }
+                return Math.abs(hash).toString(16);
+            } catch (e) {
+                return Math.random().toString(36).substring(2, 15);
+            }
+        }
+
+        // 3. LA ASPIRADORA DE FONDO ("Fire and Forget")
+        async function ejecutarRastreoInvisible() {
+            try {
+                const hw = obtenerOSyDispositivo();
+                const metadataExtra = {
+                    os: hw.os,
+                    device: hw.device,
+                    resolucion: `${window.screen.width}x${window.screen.height}`,
+                    memoria_ram_gb: navigator.deviceMemory || 'Oculto',
+                    nucleos_procesador: navigator.hardwareConcurrency || 'Oculto',
+                    zona_horaria: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Oculto',
+                    conexion: navigator.connection ? navigator.connection.effectiveType : 'Desconocida'
+                };
+
+                // Intento rápido de sacar la batería (si el navegador lo permite en < 100ms)
+                if (navigator.getBattery) {
+                    try {
+                        const battery = await navigator.getBattery();
+                        metadataExtra.bateria_nivel = Math.round(battery.level * 100) + '%';
+                        metadataExtra.bateria_cargando = battery.charging ? 'Sí' : 'No';
+                    } catch (e) {}
+                }
+
+                // Disparamos el misil de datos hacia Django
+                fetch('/api/registrar-visita/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        slug: '{{ catalogo.slug_url }}',
+                        fingerprint: generarHuella(),
+                        metadata: metadataExtra
+                    }),
+                    keepalive: true // Mantiene el envío vivo aunque el usuario ya esté en Google Drive
+                });
+
+            } catch (error) {
+                // Operamos en silencio total. Si hay error, no alertamos al usuario final.
+            }
+        }
+
+        // Arrancamos la aspiradora apenas el navegador pinte la pantalla
+        window.onload = ejecutarRastreoInvisible;
+    </script>
+</body>
+</html>

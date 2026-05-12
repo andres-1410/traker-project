@@ -18,6 +18,7 @@ class Visita(models.Model):
     ip_publica = models.GenericIPAddressField(blank=True, null=True)
     proveedor_internet_isp = models.CharField(max_length=100, blank=True, null=True)
     ubicacion_aprox = models.CharField(max_length=150, blank=True, null=True)
+    user_agent_raw = models.TextField(blank=True, null=True, help_text="Cadena completa del navegador")
     
     # Campo JSONB para guardar metadatos variables (batería, conexión, etc.)
     metadata_extra = models.JSONField(default=dict, blank=True)
