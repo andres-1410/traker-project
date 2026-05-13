@@ -7,6 +7,16 @@ class Dispositivo(models.Model):
     sistema_operativo = models.CharField(max_length=100, blank=True, null=True)
     es_iphone = models.BooleanField(default=False)
     fecha_primera_visita = models.DateTimeField(auto_now_add=True)
+    # --- NUEVO: De-anonimización (Growth Hacking) ---
+    # Usamos string 'usuarios.Vendedor' para evitar bucles de importación circular
+    vendedor_asociado = models.ForeignKey(
+        'usuarios.Vendedor', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='dispositivos_conocidos',
+        help_text="Si este dispositivo se registra como cliente nuestro, lo vinculamos aquí."
+    )
 
     def __str__(self):
         return f"Dispositivo: {self.fingerprint_hash[:8]}..."
